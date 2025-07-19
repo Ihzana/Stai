@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamScript AI - Collaborative Story Generator</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+        .container { max-width: 800px; width: 100%; }
+        h1 { text-align: center; color: #a991f7; }
+        .card { background-color: #2a2a2e; padding: 2rem; border-radius: 8px; margin-bottom: 2rem; }
+        textarea, input {
+            width: 100%;
+            padding: 0.8rem;
+            margin-bottom: 1rem;
+            background-color: #333;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #f0f0f0;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        textarea { min-height: 120px; resize: vertical; }
+        button {
+            width: 100%;
+            padding: 1rem;
+            background-color: #a991f7;
+            border: none;
+            border-radius: 4px;
+            color: #1a1a1a;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #9378e0; }
+        #story-output { display: none; }
+        #revision-section { display: none; margin-top: 2rem; }
+        #story-output h2 { color: #a991f7; }
+        #story-output p { line-height: 1.7; white-space: pre-wrap; }
+        #loader { text-align: center; font-size: 1.2rem; padding: 2rem; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>DreamScript AI ✍️</h1>
+        
+        <div class="card" id="generation-card">
+            <h2>1. Describe Your Dream</h2>
+            <form id="dream-form">
+                <textarea id="dream-description" placeholder="e.g., I was in a city made of giant, playing cards, and it was always twilight..." required></textarea>
+                <button type="submit">Generate Story</button>
+            </form>
+        </div>
+
+        <div id="loader">The AI is dreaming up your story... ⏳</div>
+
+        <div class="card" id="story-output">
+            <h2 id="story-title"></h2>
+            <p id="story-text"></p>
+        </div>
+        
+        <div class="card" id="revision-section">
+            <h2>2. Revise Your Story</h2>
+            <form id="revision-form">
+                <textarea id="revision-notes" placeholder="e.g., Make the main character more cynical. Change the ending to be more hopeful. Describe the card buildings in more detail."></textarea>
+                <button type="submit">Generate Revision</button>
+            </form>
+        </div>
+
+    </div>
+
+    <script>
+        const dreamForm = document.getElementById('dream-form');
+        const revisionForm = document.getElementById('revision-form');
+        const loader = document.getElementById('loader');
+        const storyOutput = document.getElementById('story-output');
+        const revisionSection = document.getElementById('revision-section');
+
+        let currentStoryText = ""; // To hold the story for revision
+
+        // Handle initial story generation
+        dreamForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            loader.style.display = 'block';
+            storyOutput.style.display = 'none';
+            revisionSection.style.display = 'none';
+
+            const dreamDescription = document.getElementById('dream-description').value;
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/generate-story', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dream_description: dreamDescription })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok.');
+                const result = await response.json();
+                displayStory(result);
+                currentStoryText = result.story_text; // Save the story text
+                revisionSection.style.display = 'block'; // Show the revision form
+
+            } catch (error) {
+                console.error("Error generating story:", error);
+                alert("Failed to generate story. Please check the console.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        });
+        
+        // Handle story revision
+        revisionForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            loader.style.display = 'block';
+
+            const revisionNotes = document.getElementById('revision-notes').value;
+            if (!revisionNotes || !currentStoryText) {
+                alert("Please provide revision notes.");
+                loader.style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/revise-story', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        original_story: currentStoryText,
+                        revision_notes: revisionNotes
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Network response was not ok.');
+                const result = await response.json();
+                displayStory(result);
+                currentStoryText = result.story_text; // Update with the revised story
+
+            } catch (error) {
+                console.error("Error revising story:", error);
+                alert("Failed to revise story. Please check the console.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        });
+
+        function displayStory(storyData) {
+            document.getElementById('story-title').innerText = storyData.title;
+            document.getElementById('story-text').innerText = storyData.story_text;
+            storyOutput.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
